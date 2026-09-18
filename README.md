@@ -2,7 +2,7 @@
 
 ---
 
-## Задание 1. Создать Deployment и обеспечить доступ к контейнерам по разным портам внутри кластера
+## Задание 1. Настройка Service (ClusterIP и NodePort)
 
 ### 1. Deployment с nginx и multitool (3 реплики)
 
@@ -16,34 +16,68 @@
 - порт **9001** → nginx (targetPort: 80)
 - порт **9002** → multitool (targetPort: 8080)
 
-### 3–4. Отдельный Pod multitool и проверка curl по доменному имени сервиса
+### 3. Проверка доступности изнутри кластера
 
-Создан Pod [`pod-multitool.yaml`](pod-multitool.yaml). Проверка доступа:
+Создан Pod [`pod-multitool.yaml`](pod-multitool.yaml). Проверка доступа через ClusterIP Service по DNS-имени:
 
 ```bash
 kubectl exec multitool-pod -- curl -s http://svc-nginx-multitool:9001
 kubectl exec multitool-pod -- curl -s http://svc-nginx-multitool:9002
 ```
 
-**Вывод curl по доменному имени сервиса (порт 9001 — nginx, порт 9002 — multitool):**
+**Ответ nginx на порт 9001 и multitool на порт 9002:**
 
-![curl из multitool-pod](screenshots/1.png)
+![curl ClusterIP](screenshots/1.png)
+
+### 4. Service NodePort для доступа снаружи кластера
+
+Создан Service [`svc-nodeport.yaml`](svc-nodeport.yaml) с типом `NodePort`:
+- port: **80** → targetPort: **80** → nodePort: **30080**
+
+### 5. Проверка доступа с локального компьютера
+
+```bash
+curl http://192.168.0.106:30080
+```
+
+**Вывод curl через NodePort (порт 30080):**
+
+![curl NodePort](screenshots/2.png)
 
 ---
 
-## Задание 2. Service NodePort — доступ снаружи кластера
+## Задание 2. Настройка Ingress
 
-### 1. Service NodePort для nginx
+### 1–2. Deployments и Services для frontend и backend
 
-Создан Service [`svc-nodeport.yaml`](svc-nodeport.yaml) с типом `NodePort`:
-- port: 80 → targetPort: 80 → nodePort: **30080**
+- Deployment [`deployment-frontend.yaml`](deployment-frontend.yaml) — образ `nginx:1.25`, порт 80
+- Deployment [`deployment-backend.yaml`](deployment-backend.yaml) — образ `wbitt/network-multitool`, порт 80
+- Service [`service-frontend.yaml`](service-frontend.yaml) — `svc-frontend`, порт 80
+- Service [`service-backend.yaml`](service-backend.yaml) — `svc-backend`, порт 80
 
-### 2. Доступ с локального компьютера
+### 3. Ingress-контроллер
+
+В кластере используется **Traefik** в качестве Ingress-контроллера (установлен через MicroK8S).
+
+### 4. Ingress с маршрутизацией по путям
+
+Создан Ingress [`ingress.yaml`](ingress.yaml):
+- `/` → `svc-frontend:80` (nginx — frontend)
+- `/api` → `svc-backend:80` (multitool — backend, с strip-prefix middleware чтобы срезать `/api` перед передачей в backend)
+
+Traefik слушает на NodePort **30752** (HTTP).
+
+### 5. Проверка доступности через Ingress
 
 ```bash
-curl http://<NODE_IP>:30080
+curl http://192.168.0.106:30752/
+curl http://192.168.0.106:30752/api
 ```
 
-**Вывод curl с локального компьютера через NodePort:**
+**Ответ frontend (/) — nginx:**
 
-![curl через NodePort](screenshots/2.png)
+![curl Ingress /](screenshots/3.png)
+
+**Ответ backend (/api) — multitool:**
+
+![curl Ingress /api](screenshots/4.png)
