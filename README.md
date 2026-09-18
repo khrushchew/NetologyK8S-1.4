@@ -79,6 +79,5 @@ curl http://192.168.0.106:30752/api
 ![curl Ingress /](screenshots/3.png)
 
 **Ответ backend (/api) — multitool:**
-<img width="784" height="434" alt="image" src="https://github.com/user-attachments/assets/7a227b35-1742-4844-a5fe-b8af67a4b151" />
 
 ![curl Ingress /api](screenshots/4.png)
